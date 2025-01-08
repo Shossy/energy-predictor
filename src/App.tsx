@@ -3,7 +3,7 @@ import axios from "axios";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { Button, TextField } from "@mui/material";
+import { Button, TextField, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { PredictionDdata } from "./prediction.model";
 import EnergyPredictionGraph from "./Chart";
@@ -14,6 +14,7 @@ const App: React.FC = () => {
     const [latitude, setLatitude] = useState<string>("");
     const [longitude, setLongitude] = useState<string>("");
     const [predictions, setPredictions] = useState<PredictionDdata[]>([]);
+    const [mode, setMode] = useState<string>("solar"); // Default to solar
 
     const handlePredict = async () => {
         if (!startDate || !endDate) {
@@ -57,7 +58,7 @@ const App: React.FC = () => {
             const response = await axios.post("http://127.0.0.1:5000/predict", {
                 dates: { start: startDateFormatted, end: endDateFormatted },
                 location: { latitude: lat, longitude: lon },
-                mode: 'solar',
+                mode, // Use selected mode (solar or wind)
                 timezone,
             });
             setPredictions(response.data);
@@ -68,34 +69,32 @@ const App: React.FC = () => {
         }
     };
 
-    const totalEnergy = predictions.reduce((sum, prediction) => sum + prediction.predicted_energy, 0);
+    const totalEnergy = predictions.reduce((sum, prediction) => sum + prediction.predicted_energy, 0).toFixed(2);
 
-    const maxEndDate = dayjs().add(15, "days");
+    const maxEndDate = dayjs().add(14, "days");
 
     const exportToCSV = () => {
-      if (predictions.length === 0) {
-          alert("No predictions available to export.");
-          return;
-      }
+        if (predictions.length === 0) {
+            alert("No predictions available to export.");
+            return;
+        }
 
-      // Convert predictions to CSV format
-      const headers = ["Datetime", "Predicted Energy (kWh)"];
-      const csvRows = [
-          headers.join(","), // Header row
-          ...predictions.map(prediction => `${prediction.datetime},${prediction.predicted_energy}`), // Data rows
-      ];
-      const csvContent = csvRows.join("\n");
+        const headers = ["Datetime", "Predicted Energy (kWh)"];
+        const csvRows = [
+            headers.join(","), 
+            ...predictions.map(prediction => `${prediction.datetime},${prediction.predicted_energy}`), 
+        ];
+        const csvContent = csvRows.join("\n");
 
-      // Create a Blob and download link
-      const blob = new Blob([csvContent], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "predictions.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-  };
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "predictions.csv";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
 
     return (
         <div style={{ padding: "2rem" }}>
@@ -125,7 +124,6 @@ const App: React.FC = () => {
                     variant="outlined"
                     value={latitude}
                     onChange={(e) => setLatitude(e.target.value)}
-                    
                     style={{ marginRight: "1rem" }}
                 />
                 <TextField
@@ -133,9 +131,20 @@ const App: React.FC = () => {
                     variant="outlined"
                     value={longitude}
                     onChange={(e) => setLongitude(e.target.value)}
-                    
                 />
             </div>
+            <br />
+            <FormControl>
+                <FormLabel>Prediction Mode</FormLabel>
+                <RadioGroup
+                    row
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value)}
+                >
+                    <FormControlLabel value="solar" control={<Radio />} label="Solar" />
+                    <FormControlLabel value="wind" control={<Radio />} label="Wind" />
+                </RadioGroup>
+            </FormControl>
             <br />
             <Button variant="contained" color="primary" style={{ marginRight: "1rem" }} onClick={handlePredict}>
                 Predict
